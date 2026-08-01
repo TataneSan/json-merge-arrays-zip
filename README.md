@@ -1,135 +1,115 @@
 # json-merge-arrays-zip
 
-Zip JSON arrays together index by index into tuples.
+[![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)](pyproject.toml)
 
-```console
-$ json-merge-arrays-zip '[1,2,3]' '["a","b","c"]' --compact
-[[1,"a"],[2,"b"],[3,"c"]]
-```
+Merge two JSON / JSONL array streams **by index** into tuples `[a, b]`.
 
-Sources can be files, inline JSON strings, `-` for stdin, or a JSONL
-stream where every line contributes one array (`--jsonl`).
+Each line (or document) of FILE_A is zipped, index by index, with the matching
+line of FILE_B. Non-array values are skipped. When arrays have different
+lengths a fill value is used, unless `--strict-len` rejects them (exit 2).
+
+Typical uses: combining a stream of keys with a stream of values, joining
+features and labels, merging two parallel data exports.
 
 ## Features
 
-- Classic zip semantics: stop at the shortest array (default)
-- `--pad --fill VALUE` to pad shorter arrays instead of truncating
-- `--strict-len` to fail when input lengths differ (data-quality gate)
-- `--path a.b.c` to reach an array nested inside each document
-- `--require N` minimum tuple count for CI, JSON stats report
-- Compact or pretty output
-- Pure Python standard library, Python >= 3.9
+- Accepts plain JSON (`[1,2,3]`) or JSON Lines (one value per line)
+- Zips arrays pairwise: `[a0,b0], [a1,b1], ...`
+- `--fill VALUE` for jagged inputs (VALUE parsed as JSON, default `null`)
+- `--strict-len` CI gate: exit 2 when paired arrays differ in length
+- `--compact` single-line output, `--json` machine-readable summary
+- Reads FILE_A from stdin with `-`
+- Pure Python standard library, no dependencies
 
-## Install
+## Installation
+
+From source:
 
 ```sh
 pip install .
-# or straight from the repo
-pip install git+https://github.com/TataneSan/json-merge-arrays-zip.git
 ```
 
-You can also run it without installing:
+Or directly from GitHub:
 
 ```sh
-python3 -m json_merge_arrays_zip '[1,2]' '["a","b"]'
+pip install git+https://github.com/TataneSan/json-merge-arrays-zip.git
 ```
 
 ## Usage
 
-```console
-$ json-merge-arrays-zip names.json scores.json
-$ json-merge-arrays-zip --jsonl < arrays.jsonl
-$ json-merge-arrays-zip --path data.values a.json b.json
+```text
+usage: json-merge-arrays-zip [-h] [--fill FILL] [--strict-len] [--compact]
+                             [--json] [-q] [--version]
+                             FILE_A FILE_B
 ```
 
-### Examples
+### Merge two JSONL files
 
-Two files:
+```sh
+$ cat keys.jsonl
+["a", "b", "c"]
 
-```console
-$ cat a.json
+$ cat values.jsonl
 [1, 2, 3]
-$ cat b.json
-["x", "y", "z"]
+
+$ json-merge-arrays-zip keys.jsonl values.jsonl --compact
+[["a",1],["b",2],["c",3]]
+```
+
+### Pipe the first stream from stdin
+
+```sh
+$ echo '["x","y"]' | json-merge-arrays-zip - values.jsonl --compact
+[["x",1],["y",2]]
+```
+
+### Jagged arrays with fill
+
+```sh
+$ echo '[1, 2]' > a.json
+$ echo '["a", "b", "c"]' > b.json
 $ json-merge-arrays-zip a.json b.json --compact
-[[1,"x"],[2,"y"],[3,"z"]]
+[[1,"a"],[2,"b"],[null,"c"]]
+
+$ json-merge-arrays-zip a.json b.json --fill '"?"' --compact
+[[1,"a"],[2,"b"],["?","c"]]
 ```
 
-JSONL stream:
+### Strict length check (CI)
 
-```console
-$ printf '[1,2,3]\n[4,5,6]\n' | json-merge-arrays-zip --jsonl --compact
-[[1,4],[2,5],[3,6]]
+```sh
+$ json-merge-arrays-zip a.json b.json --strict-len
+json-merge-arrays-zip: line 1: arrays of different lengths (2 vs 3) rejected by --strict-len
+# exit code 2
 ```
 
-Unequal lengths — truncated by default:
+### Summary report
 
-```console
-$ json-merge-arrays-zip '[1,2,3]' '[9]' --compact
-[[1,9]]
+```sh
+json-merge-arrays-zip keys.jsonl values.jsonl --compact --json
 ```
 
-Padded instead:
-
-```console
-$ json-merge-arrays-zip '[1,2,3]' '[9]' --pad --compact
-[[1,9],[2,null],[3,null]]
-```
-
-Fail on unequal lengths (CI gate):
-
-```console
-$ json-merge-arrays-zip '[1,2]' '[9]' --strict-len; echo $?
-error: unequal lengths: [1, 2]
-2
-```
-
-Arrays nested inside documents:
-
-```console
-$ json-merge-arrays-zip --path payload.values resp_a.json resp_b.json
-```
-
-Stats as JSON:
-
-```console
-$ json-merge-arrays-zip '[1,2,3]' '[4,5]' --stats-json
-{
-  "arrays": 2,
-  "input_lengths": [2, 3],
-  "padded": false,
-  "truncated": true,
-  "tuples": 2
-}
-```
-
-## Options
-
-| Option | Description |
-|---|---|
-| `--jsonl` | Read stdin as JSONL: each line is one array |
-| `--path P` | Dotted path to the array inside each document |
-| `--pad` | Pad shorter arrays instead of truncating |
-| `--fill V` | Fill value for `--pad` (parsed as JSON when possible) |
-| `--strict-len` | Exit 2 when input lengths differ |
-| `--require N` | Exit 2 if fewer than N tuples are produced |
-| `--compact` | Emit compact JSON |
-| `--stats-json` | Emit a JSON stats report instead of tuples |
+writes the zipped tuples on stdout and a JSON report (`pairs_merged`,
+`tuples_emitted`, fill value, ...) on stderr.
 
 ## Exit codes
 
-| Code | Meaning |
-|---|---|
-| 0 | Success |
-| 1 | CLI or I/O error (bad JSON, missing path, non-array source) |
-| 2 | `--strict-len` on unequal lengths, or `--require N` not met |
+| Code | Meaning                                                    |
+|------|------------------------------------------------------------|
+| 0    | success                                                    |
+| 1    | I/O or CLI error (missing file, malformed JSON)            |
+| 2    | `--strict-len` rejected a pair of arrays of unequal length |
 
-## Tests
+## Development
+
+Run the test suite:
 
 ```sh
-python3 -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

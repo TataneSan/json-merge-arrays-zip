@@ -1,17 +1,27 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "json-merge-arrays-zip"
 version = "1.0.0"
-description = "Zip JSON/JSONL arrays together index by index into tuples"
+description = "Merge two JSON/JSONL array streams by index into [a, b] tuples"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = { text = "MIT" }
+authors = [{ name = "TataneSan" }]
+keywords = ["json", "jsonl", "zip", "merge", "cli"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Filters",
+]
 
 [project.scripts]
 json-merge-arrays-zip = "json_merge_arrays_zip.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["json_merge_arrays_zip*"]
+[tool.setuptools]
+packages = ["json_merge_arrays_zip"]
