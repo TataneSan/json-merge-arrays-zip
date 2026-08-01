@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "json-merge-arrays-zip"
+version = "1.0.0"
+description = "Zip JSON/JSONL arrays together index by index into tuples"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+
+[project.scripts]
+json-merge-arrays-zip = "json_merge_arrays_zip.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["json_merge_arrays_zip*"]
